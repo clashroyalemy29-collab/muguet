@@ -1,37 +1,51 @@
-  - name: Select Xcode
-    run: |
-      sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-      xcodebuild -version
+name: Build Muguet IPA
 
-  - name: Install Rust
-    run: |
-      rustup toolchain install 1.98.1
-      rustup target add aarch64-apple-ios --toolchain 1.98.1
+on:
+  workflow_dispatch:
 
-  - name: Install XcodeGen
-    run: |
-      brew install xcodegen
+permissions:
+  contents: read
 
-  - name: Build unsigned IPA
-    shell: bash
-    run: |
-      chmod +x make-ios.sh
+jobs:
+  build:
+    runs-on: macos-15
 
-      if [ "${{ inputs.include_game }}" = "with_game" ]; then
-        if [ ! -f game.zip ]; then
-          echo "ERROR: game.zip is missing from the repository root."
-          exit 1
-        fi
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-        FREE=1 BUNDLE_ID=com.example.muguet ./make-ios.sh game.zip --ipa
-      else
-        FREE=1 BUNDLE_ID=com.example.muguet ./make-ios.sh --ipa
-      fi
+      - name: Select Xcode
+        run: |
+          xcodebuild -version
+          xcode-select -p
 
-  - name: Upload IPA
-    uses: actions/upload-artifact@v4
-    with:
-      name: Muguet-IPA
-      path: build/Muguet.ipa
-      if-no-files-found: error
-      retention-days: 7
+      - name: Install Rust
+        run: |
+          rustup toolchain install 1.98.1
+          rustup target add aarch64-apple-ios --toolchain 1.98.1
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Check build script
+        run: |
+          test -f make-ios.sh
+          chmod +x make-ios.sh
+
+      - name: Build IPA
+        run: |
+          FREE=1 BUNDLE_ID=com.example.muguet ./make-ios.sh --ipa
+
+      - name: Find IPA
+        run: |
+          find . -type f -name "*.ipa" -print
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Muguet-IPA
+          path: "**/*.ipa"
+          if-no-files-found: error
+          retention-days: 7
